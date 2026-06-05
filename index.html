@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Сапёр — Minesweeper</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app__header">
+      <h1 class="app__title">💣 Сапёр</h1>
+      <p class="app__subtitle">Классическая игра на логику и внимательность</p>
+    </header>
+
+    <section class="controls">
+      <div class="difficulty" id="difficulty">
+        <button class="difficulty__btn is-active" data-level="beginner">😊 Новичок</button>
+        <button class="difficulty__btn" data-level="intermediate">😎 Любитель</button>
+        <button class="difficulty__btn" data-level="expert">🔥 Эксперт</button>
+        <button class="difficulty__btn" data-level="custom">⚙️ Свой</button>
+      </div>
+
+      <form class="custom" id="custom-form" hidden>
+        <label>Ширина
+          <input type="number" id="custom-cols" min="5" max="40" value="12" />
+        </label>
+        <label>Высота
+          <input type="number" id="custom-rows" min="5" max="30" value="12" />
+        </label>
+        <label>Мины
+          <input type="number" id="custom-mines" min="1" max="800" value="24" />
+        </label>
+        <button type="submit" class="custom__apply">Применить</button>
+      </form>
+    </section>
+
+    <section class="hud">
+      <div class="hud__panel" title="Осталось мин">
+        <span class="hud__icon">🚩</span>
+        <span class="hud__value" id="mine-counter">000</span>
+      </div>
+      <button class="face" id="face" title="Новая игра">🙂</button>
+      <div class="hud__panel" title="Время">
+        <span class="hud__icon">⏱️</span>
+        <span class="hud__value" id="timer">000</span>
+      </div>
+    </section>
+
+    <section class="board-wrap">
+      <div class="board" id="board"></div>
+      <div class="overlay" id="overlay" hidden>
+        <div class="overlay__card">
+          <div class="overlay__emoji" id="overlay-emoji">🎉</div>
+          <h2 class="overlay__title" id="overlay-title">Победа!</h2>
+          <p class="overlay__text" id="overlay-text"></p>
+          <button class="overlay__btn" id="overlay-restart">Играть снова</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="app__footer">
+      <p>Левый клик — открыть клетку · Правый клик — флажок 🚩 · На телефоне — долгое нажатие для флажка</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
