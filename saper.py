@@ -100,16 +100,16 @@ class Minesweeper:
     # ----------------------------- UI -----------------------------------
 
     def _build_difficulty_bar(self):
-        bar = tk.Frame(self.root, bg=COLORS["panel"], padx=10, pady=10)
-        bar.pack(fill="x", padx=12, pady=(12, 0))
+        self.diff_bar = tk.Frame(self.root, bg=COLORS["panel"], padx=10, pady=10)
+        self.diff_bar.pack(fill="x", padx=12, pady=(12, 0))
 
         title = tk.Label(
-            bar, text="💣 Сапёр", bg=COLORS["panel"], fg=COLORS["text"],
+            self.diff_bar, text="💣 Сапёр", bg=COLORS["panel"], fg=COLORS["text"],
             font=("Segoe UI", 16, "bold"),
         )
         title.pack(pady=(0, 8))
 
-        btn_row = tk.Frame(bar, bg=COLORS["panel"])
+        btn_row = tk.Frame(self.diff_bar, bg=COLORS["panel"])
         btn_row.pack()
 
         for name in DIFFICULTIES:
@@ -212,10 +212,8 @@ class Minesweeper:
 
     def select_custom(self):
         self._highlight_difficulty("Свой")
-        # показываем панель настроек под панелью сложности
-        self.custom_frame.pack(fill="x", padx=12, pady=(10, 0),
-                               after=self.diff_buttons["Свой"].winfo_toplevel().children and
-                               self.root.pack_slaves()[0])
+        # показываем панель настроек сразу под панелью сложности
+        self.custom_frame.pack(fill="x", padx=12, pady=(10, 0), after=self.diff_bar)
         self.apply_custom()
 
     def apply_custom(self):
