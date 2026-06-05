@@ -2,8 +2,9 @@
 Сапёр (Minesweeper) на Python + tkinter.
 
 Возможности:
-  * Выбор сложности: Новичок / Любитель / Профи / Своя игра
-  * Красивый минималистичный визуал с цветными цифрами
+  * Экранный выбор сложности кнопками: Новичок / Любитель / Эксперт / Свой
+  * Настройка размера поля и числа мин прямо в окне
+  * Красивый тёмный визуал с цветными цифрами
   * Кнопка-смайлик для перезапуска, таймер и счётчик мин
   * Первый клик всегда безопасен
   * Автораскрытие пустых областей (flood fill)
@@ -22,24 +23,32 @@ from tkinter import messagebox
 DIFFICULTIES = {
     "Новичок":  {"rows": 9,  "cols": 9,  "mines": 10},
     "Любитель": {"rows": 16, "cols": 16, "mines": 40},
-    "Профи":    {"rows": 16, "cols": 30, "mines": 99},
+    "Эксперт":  {"rows": 16, "cols": 30, "mines": 99},
 }
+
+# Ограничения для режима "Свой"
+MIN_SIZE = 5
+MAX_ROWS = 30
+MAX_COLS = 40
 
 # --------------------------- Палитра / стиль -----------------------------
 
 COLORS = {
-    "bg":            "#1e2430",   # общий фон окна
-    "panel":         "#2a3140",   # фон верхней панели
-    "cell_hidden":   "#3d4659",   # закрытая клетка
-    "cell_open":     "#222834",   # открытая клетка
-    "cell_border":   "#161b24",
+    "bg":            "#0f1320",   # общий фон окна
+    "panel":         "#1e2438",   # фон панелей
+    "panel_2":       "#262d45",   # фон кнопок
+    "cell_hidden":   "#38405c",   # закрытая клетка
+    "cell_open":     "#1a1f30",   # открытая клетка
     "accent":        "#5da9e9",
-    "text":          "#e6ebf2",
-    "mine":          "#ff5c5c",
+    "accent_2":      "#7c5cff",
+    "text":          "#e8edf6",
+    "text_dim":      "#9aa6c2",
+    "mine":          "#ff5d6c",
     "mine_bg":       "#7a2331",
-    "flag":          "#ffcc4d",
-    "display_bg":    "#0f1117",
-    "display_fg":    "#ff5151",
+    "explode_bg":    "#c62f3d",
+    "flag":          "#ffce4d",
+    "display_bg":    "#0b0e18",
+    "display_fg":    "#ff5d6c",
 }
 
 # Классические цвета цифр сапёра
@@ -50,8 +59,8 @@ NUMBER_COLORS = {
     4: "#a779ff",
     5: "#ffae42",
     6: "#39d0d8",
-    7: "#e6ebf2",
-    8: "#9aa6b8",
+    7: "#e8edf6",
+    8: "#9aa6c2",
 }
 
 
@@ -78,30 +87,91 @@ class Minesweeper:
         self.timer_running = False
         self.seconds = 0
 
-        self._build_menu_bar()
+        self.diff_buttons = {}
+
+        self._build_difficulty_bar()
+        self._build_custom_panel()
         self._build_top_panel()
-        self.board_frame = tk.Frame(self.root, bg=COLORS["bg"], padx=10, pady=10)
+        self.board_frame = tk.Frame(self.root, bg=COLORS["bg"], padx=12, pady=12)
         self.board_frame.pack()
 
         self.new_game(self.difficulty_name)
 
     # ----------------------------- UI -----------------------------------
 
-    def _build_menu_bar(self):
-        menubar = tk.Menu(self.root)
-        game_menu = tk.Menu(menubar, tearoff=0)
+    def _build_difficulty_bar(self):
+        bar = tk.Frame(self.root, bg=COLORS["panel"], padx=10, pady=10)
+        bar.pack(fill="x", padx=12, pady=(12, 0))
+
+        title = tk.Label(
+            bar, text="💣 Сапёр", bg=COLORS["panel"], fg=COLORS["text"],
+            font=("Segoe UI", 16, "bold"),
+        )
+        title.pack(pady=(0, 8))
+
+        btn_row = tk.Frame(bar, bg=COLORS["panel"])
+        btn_row.pack()
+
         for name in DIFFICULTIES:
-            game_menu.add_command(label=name, command=lambda n=name: self.new_game(n))
-        game_menu.add_separator()
-        game_menu.add_command(label="Своя игра…", command=self._custom_game_dialog)
-        game_menu.add_separator()
-        game_menu.add_command(label="Выход", command=self.root.quit)
-        menubar.add_cascade(label="Игра", menu=game_menu)
-        self.root.config(menu=menubar)
+            b = tk.Button(
+                btn_row, text=name, font=("Segoe UI", 11, "bold"),
+                bg=COLORS["panel_2"], fg=COLORS["text"],
+                activebackground=COLORS["accent"], activeforeground="#ffffff",
+                relief="flat", bd=0, padx=14, pady=7, cursor="hand2",
+                command=lambda n=name: self.select_difficulty(n),
+            )
+            b.pack(side="left", padx=4)
+            self.diff_buttons[name] = b
+
+        custom_btn = tk.Button(
+            btn_row, text="⚙ Свой", font=("Segoe UI", 11, "bold"),
+            bg=COLORS["panel_2"], fg=COLORS["text"],
+            activebackground=COLORS["accent"], activeforeground="#ffffff",
+            relief="flat", bd=0, padx=14, pady=7, cursor="hand2",
+            command=self.select_custom,
+        )
+        custom_btn.pack(side="left", padx=4)
+        self.diff_buttons["Свой"] = custom_btn
+
+    def _build_custom_panel(self):
+        self.custom_frame = tk.Frame(self.root, bg=COLORS["panel"], padx=10, pady=10)
+        # показываем только при выборе "Свой" (pack в select_custom)
+
+        self.var_cols = tk.IntVar(value=12)
+        self.var_rows = tk.IntVar(value=12)
+        self.var_mines = tk.IntVar(value=24)
+
+        specs = [
+            ("Ширина", self.var_cols, MIN_SIZE, MAX_COLS),
+            ("Высота", self.var_rows, MIN_SIZE, MAX_ROWS),
+            ("Мины", self.var_mines, 1, MAX_ROWS * MAX_COLS),
+        ]
+        for label, var, lo, hi in specs:
+            wrap = tk.Frame(self.custom_frame, bg=COLORS["panel"])
+            wrap.pack(side="left", padx=8)
+            tk.Label(
+                wrap, text=label, bg=COLORS["panel"], fg=COLORS["text_dim"],
+                font=("Segoe UI", 9, "bold"),
+            ).pack(anchor="w")
+            tk.Spinbox(
+                wrap, from_=lo, to=hi, textvariable=var, width=6,
+                font=("Segoe UI", 11), justify="center",
+                bg=COLORS["display_bg"], fg=COLORS["text"],
+                buttonbackground=COLORS["panel_2"], relief="flat",
+                insertbackground=COLORS["text"],
+            ).pack()
+
+        apply_btn = tk.Button(
+            self.custom_frame, text="Применить", font=("Segoe UI", 11, "bold"),
+            bg=COLORS["accent_2"], fg="#ffffff", activebackground=COLORS["accent"],
+            relief="flat", bd=0, padx=14, pady=7, cursor="hand2",
+            command=self.apply_custom,
+        )
+        apply_btn.pack(side="left", padx=(12, 4), anchor="s", pady=(0, 1))
 
     def _build_top_panel(self):
         self.panel = tk.Frame(self.root, bg=COLORS["panel"], padx=12, pady=10)
-        self.panel.pack(fill="x", padx=10, pady=(10, 0))
+        self.panel.pack(fill="x", padx=12, pady=(10, 0))
 
         # счётчик мин
         self.mine_label = tk.Label(
@@ -114,7 +184,8 @@ class Minesweeper:
         self.reset_button = tk.Button(
             self.panel, text="🙂", font=("Segoe UI Emoji", 18),
             bg=COLORS["cell_hidden"], activebackground=COLORS["accent"],
-            relief="flat", width=3, command=lambda: self.new_game(self.difficulty_name),
+            relief="flat", width=3, cursor="hand2",
+            command=lambda: self.new_game(self.difficulty_name),
         )
         self.reset_button.pack(side="left", expand=True)
 
@@ -125,39 +196,45 @@ class Minesweeper:
         )
         self.timer_label.pack(side="right")
 
-    def _custom_game_dialog(self):
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Своя игра")
-        dialog.configure(bg=COLORS["bg"])
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        dialog.grab_set()
+    # --------------------------- Выбор сложности ----------------------
 
-        fields = [("Строки (2-30):", 9), ("Столбцы (2-40):", 9), ("Мины:", 10)]
-        entries = []
-        for i, (label, default) in enumerate(fields):
-            tk.Label(dialog, text=label, bg=COLORS["bg"], fg=COLORS["text"],
-                     font=("Segoe UI", 11)).grid(row=i, column=0, sticky="w", padx=12, pady=6)
-            e = tk.Entry(dialog, width=6, font=("Segoe UI", 11))
-            e.insert(0, str(default))
-            e.grid(row=i, column=1, padx=12, pady=6)
-            entries.append(e)
+    def _highlight_difficulty(self, active_name):
+        for name, btn in self.diff_buttons.items():
+            if name == active_name:
+                btn.config(bg=COLORS["accent"], fg="#ffffff")
+            else:
+                btn.config(bg=COLORS["panel_2"], fg=COLORS["text"])
 
-        def start():
-            try:
-                rows = max(2, min(30, int(entries[0].get())))
-                cols = max(2, min(40, int(entries[1].get())))
-                max_mines = rows * cols - 1
-                mines = max(1, min(max_mines, int(entries[2].get())))
-            except ValueError:
-                messagebox.showerror("Ошибка", "Введите корректные числа.")
-                return
-            dialog.destroy()
-            self.new_game("Своя игра", rows, cols, mines)
+    def select_difficulty(self, name):
+        self.custom_frame.pack_forget()
+        self._highlight_difficulty(name)
+        self.new_game(name)
 
-        tk.Button(dialog, text="Старт", command=start, bg=COLORS["accent"],
-                  fg="#ffffff", relief="flat", font=("Segoe UI", 11, "bold"),
-                  padx=10).grid(row=3, column=0, columnspan=2, pady=12)
+    def select_custom(self):
+        self._highlight_difficulty("Свой")
+        # показываем панель настроек под панелью сложности
+        self.custom_frame.pack(fill="x", padx=12, pady=(10, 0),
+                               after=self.diff_buttons["Свой"].winfo_toplevel().children and
+                               self.root.pack_slaves()[0])
+        self.apply_custom()
+
+    def apply_custom(self):
+        try:
+            cols = self._clamp(int(self.var_cols.get()), MIN_SIZE, MAX_COLS)
+            rows = self._clamp(int(self.var_rows.get()), MIN_SIZE, MAX_ROWS)
+            max_mines = rows * cols - 1
+            mines = self._clamp(int(self.var_mines.get()), 1, max_mines)
+        except (ValueError, tk.TclError):
+            messagebox.showerror("Ошибка", "Введите корректные числа.")
+            return
+        self.var_cols.set(cols)
+        self.var_rows.set(rows)
+        self.var_mines.set(mines)
+        self.new_game("Свой", rows, cols, mines)
+
+    @staticmethod
+    def _clamp(value, lo, hi):
+        return max(lo, min(hi, value))
 
     # --------------------------- Логика игры -----------------------------
 
@@ -168,6 +245,8 @@ class Minesweeper:
         else:
             self.rows, self.cols, self.mines = rows, cols, mines
         self.difficulty_name = difficulty_name
+        if difficulty_name in self.diff_buttons:
+            self._highlight_difficulty(difficulty_name)
 
         # сброс состояния
         self.mine_positions = set()
@@ -187,15 +266,19 @@ class Minesweeper:
             widget.destroy()
         self.buttons = {}
 
+        # размер клеток подстраивается под ширину поля
+        cell_font_size = 13 if self.cols <= 20 else 10
+        cell_w = 2 if self.cols <= 20 else 1
+
         for r in range(self.rows):
             for c in range(self.cols):
                 btn = tk.Label(
-                    self.board_frame, width=2, height=1,
-                    font=("Segoe UI", 13, "bold"),
+                    self.board_frame, width=cell_w, height=1,
+                    font=("Segoe UI", cell_font_size, "bold"),
                     bg=COLORS["cell_hidden"], fg=COLORS["text"],
                     relief="flat", bd=0,
                 )
-                btn.grid(row=r, column=c, padx=1, pady=1, ipadx=4, ipady=3)
+                btn.grid(row=r, column=c, padx=1, pady=1, ipadx=3, ipady=2)
                 btn.bind("<Button-1>", lambda e, r=r, c=c: self.on_left_click(r, c))
                 btn.bind("<Button-3>", lambda e, r=r, c=c: self.on_right_click(r, c))
                 btn.bind("<Double-Button-1>", lambda e, r=r, c=c: self.on_chord(r, c))
@@ -251,7 +334,7 @@ class Minesweeper:
             self._tick()
 
         if (r, c) in self.mine_positions:
-            self._lose()
+            self._lose((r, c))
             return
 
         self._reveal(r, c)
@@ -283,7 +366,7 @@ class Minesweeper:
             if (nr, nc) in self.flagged or (nr, nc) in self.revealed:
                 continue
             if (nr, nc) in self.mine_positions:
-                self._lose()
+                self._lose((nr, nc))
                 return
             self._reveal(nr, nc)
         self._check_win()
@@ -324,16 +407,18 @@ class Minesweeper:
 
     # --------------------------- Конец игры ------------------------------
 
-    def _lose(self):
+    def _lose(self, exploded=None):
         self.game_over = True
         self.timer_running = False
         self.reset_button.config(text="😵")
         for (mr, mc) in self.mine_positions:
             btn = self.buttons[(mr, mc)]
-            if (mr, mc) in self.flagged:
+            if (mr, mc) == exploded:
+                btn.config(text="💥", bg=COLORS["explode_bg"], fg="#ffffff")
+            elif (mr, mc) in self.flagged:
                 btn.config(text="🚩", bg=COLORS["cell_open"])
             else:
-                btn.config(text="💣", bg=COLORS["mine_bg"], fg=COLORS["text"])
+                btn.config(text="💣", bg=COLORS["mine_bg"], fg="#ffffff")
         # неверно поставленные флажки
         for (fr, fc) in self.flagged:
             if (fr, fc) not in self.mine_positions:
